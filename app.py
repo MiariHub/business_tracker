@@ -19,8 +19,60 @@ from reportlab.platypus import (
 )
 from reportlab.lib.utils import ImageReader
 
+# ---------- Page + Runtime Theme (code-driven) ----------
+st.set_page_config(page_title="Business Performance Tracker", layout="wide")
 
+def apply_runtime_theme(
+    primary="#5b6cff",
+    bg="#ffffff",
+    bg_secondary="#f7f8ff",
+    text="#202124",
+    font_family="Times New Roman",  # Streamlit UI supports serif/sans serif/monospace
+):
+    # Why: Streamlit does not accept theme=... in set_page_config; we override via CSS.
+    css = f"""
+    <style>
+      :root {{
+        --primary-color: {primary};
+        --background-color: {bg};
+        --secondary-background-color: {bg_secondary};
+        --text-color: {text};
+        --font: {font_family};
+      }}
+      html, body, .stApp {{
+        background-color: var(--background-color);
+        color: var(--text-color);
+        font-family: var(--font), ui-serif, Georgia, "Times New Roman", Times, serif;
+      }}
+      /* Primary buttons */
+      [data-testid="stBaseButton-primary"] {{
+        background-color: var(--primary-color) !important;
+        border-color: var(--primary-color) !important;
+      }}
+      /* Links */
+      a, .st-emotion-cache-1wbqy5l {{
+        color: var(--primary-color) !important;
+      }}
+      /* Sidebar background */
+      [data-testid="stSidebar"] {{
+        background-color: var(--secondary-background-color) !important;
+      }}
+      /* Cards/containers may use secondary */
+      .st-emotion-cache-1r6slb0, .st-emotion-cache-1r6slb0 > div {{
+        background-color: var(--secondary-background-color);
+      }}
+    </style>
+    """
+    st.markdown(css, unsafe_allow_html=True)
 
+# Apply your requested UI theme colors
+apply_runtime_theme(
+    primary="#5b6cff",
+    bg="#ffffff",
+    bg_secondary="#f7f8ff",
+    text="#202124",
+    font_family="serif",
+)
 
 # ---------------------------- Constants ----------------------------
 SAVED_EDITS_FILE = "saved_edits.csv"
@@ -33,7 +85,7 @@ REQUIRED_COLUMNS = [
 # PDF layout caps
 FRAME_MAX_W = 468   # 612 - 2*72
 CHART_MAX_H = 420
-LOGO_MAX_H = 120    # compact logo
+LOGO_MAX_H = 120
 
 # ---------------------------- Utilities ----------------------------
 def normalize_month(s: pd.Series) -> pd.Series:
@@ -301,16 +353,13 @@ def classy_monthly_table_centered(df: pd.DataFrame, max_rows: int = 10):
     if d.empty:
         t = Table([["No data available"]]); t.hAlign = "CENTER"; return t, TableStyle([])
 
-    # Coerce numerics
     d["Revenue"] = pd.to_numeric(d["Revenue"], errors="coerce").fillna(0.0)
     d["Net Profit"] = pd.to_numeric(d["Net Profit"], errors="coerce").fillna(0.0)
     d["Customers"] = pd.to_numeric(d["Customers"], errors="coerce").fillna(0.0)
     d["Conversion Rate"] = pd.to_numeric(d["Conversion Rate"], errors="coerce").fillna(0.0)
 
-    # Limit to visible rows
     body = d.head(max_rows).copy()
 
-    # Aggregates
     rev_sum = float(body["Revenue"].sum())
     np_sum  = float(body["Net Profit"].sum())
     cust_sum = float(body["Customers"].sum())
@@ -319,7 +368,6 @@ def classy_monthly_table_centered(df: pd.DataFrame, max_rows: int = 10):
     else:
         conv_wavg = float(body["Conversion Rate"].mean() if len(body) else 0.0)
 
-    # Build rows
     rows = [["Month","Revenue","Net Profit","Customers","Conv. Rate"]]
     for _, r in body.iterrows():
         rows.append([
@@ -329,7 +377,6 @@ def classy_monthly_table_centered(df: pd.DataFrame, max_rows: int = 10):
             f"{r['Customers']:,.0f}",
             f"{r['Conversion Rate']:.1%}",
         ])
-    # Totals row
     rows.append([
         "Aggregates",
         f"${rev_sum:,.0f}",
@@ -351,33 +398,21 @@ def classy_monthly_table_centered(df: pd.DataFrame, max_rows: int = 10):
     navy = colors.HexColor("#173a5e")
     zebra1 = colors.whitesmoke
     zebra2 = colors.HexColor("#f7f9fb")
-    rule = colors.HexColor("#d8e0ea")
 
     style_cmds = [
         ("FONTNAME",(0,0),(-1,0),"Times-Bold"),
         ("FONTSIZE",(0,0),(-1,0),10),
         ("BACKGROUND",(0,0),(-1,0),navy),
         ("TEXTCOLOR",(0,0),(-1,0),colors.white),
-
-        # Center EVERYTHING
         ("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-
         ("FONTNAME",(0,1),(-1,-2),"Times-Roman"),
         ("FONTSIZE",(0,1),(-1,-2),9),
-
-        # Body zebra (excluding the aggregate row)
         ("ROWBACKGROUNDS",(0,1),(-1,-2),[zebra1, zebra2]),
-
-        # Rules
-        ("LINEBELOW",(0,0),(-1,0),1, navy),       # header underline
-        ("LINEABOVE",(0,-1),(-1,-1),1, navy),     # line above aggregates
-
-        # Aggregates styling (last row)
+        ("LINEBELOW",(0,0),(-1,0),1, navy),
+        ("LINEABOVE",(0,-1),(-1,-1),1, navy),
         ("FONTNAME",(0,-1),(-1,-1),"Times-Bold"),
         ("FONTSIZE",(0,-1),(-1,-1),10),
-
-        # Padding
         ("LEFTPADDING",(0,0),(-1,-1),6),
         ("RIGHTPADDING",(0,0),(-1,-1),6),
         ("TOPPADDING",(0,0),(-1,-1),6),
@@ -390,11 +425,8 @@ def quarterly_table_centered(df: pd.DataFrame, max_rows: int = 10):
     if df.empty:
         t = Table([["No data available"]]); t.hAlign = "CENTER"; return t, TableStyle([])
     agg = quarterly_summary_df(df).copy()
-
-    # Limit to visible rows
     view = agg.head(max_rows).copy()
 
-    # Aggregates
     rev_sum = float(view["Revenue"].sum())
     np_sum  = float(view["Net Profit"].sum())
     cust_sum = float(view["Customers"].sum())
@@ -431,21 +463,15 @@ def quarterly_table_centered(df: pd.DataFrame, max_rows: int = 10):
         ("FONTSIZE",(0,0),(-1,0),10),
         ("BACKGROUND",(0,0),(-1,0),navy),
         ("TEXTCOLOR",(0,0),(-1,0),colors.white),
-
         ("ALIGN",(0,0),(-1,-1),"CENTER"),
         ("VALIGN",(0,0),(-1,-1),"MIDDLE"),
-
         ("FONTNAME",(0,1),(-1,-2),"Times-Roman"),
         ("FONTSIZE",(0,1),(-1,-2),9),
-
         ("ROWBACKGROUNDS",(0,1),(-1,-2),[zebra1, zebra2]),
-
         ("LINEBELOW",(0,0),(-1,0),1, navy),
         ("LINEABOVE",(0,-1),(-1,-1),1, navy),
-
         ("FONTNAME",(0,-1),(-1,-1),"Times-Bold"),
         ("FONTSIZE",(0,-1),(-1,-1),10),
-
         ("LEFTPADDING",(0,0),(-1,-1),6),
         ("RIGHTPADDING",(0,0),(-1,-1),6),
         ("TOPPADDING",(0,0),(-1,-1),6),
@@ -903,10 +929,17 @@ def render_dashboard(df: pd.DataFrame, role: str = "owner"):
             )
 
 # ---------------------------- Entrypoint ----------------------------
+def make_sample_or_load() -> pd.DataFrame:
+    if os.path.exists(DATA_FILE) and os.path.getsize(DATA_FILE) > 0:
+        try:
+            return ensure_columns(pd.read_csv(DATA_FILE))
+        except Exception:
+            pass
+    return make_sample_data()
+
 def main():
-    st.set_page_config(page_title="Business Performance Tracker", layout="wide")
     if "base_df" not in st.session_state:
-        st.session_state["base_df"] = make_sample_data()
+        st.session_state["base_df"] = make_sample_or_load()
     render_dashboard(st.session_state["base_df"], role="owner")
 
 if __name__ == "__main__":
