@@ -1,5 +1,4 @@
-config.toml
-[theme]
+https://github.com/MiariHub/business_tracker/blob/main/config.toml[theme]
 base = "light"
 primaryColor = "#5b6cff"
 backgroundColor = "#ffffff"
