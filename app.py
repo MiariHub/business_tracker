@@ -19,6 +19,20 @@ from reportlab.platypus import (
 )
 from reportlab.lib.utils import ImageReader
 
+
+st.set_page_config(
+    page_title="Business Performance Tracker",
+    layout="wide",
+    theme={
+        "base": "light",
+        "primaryColor": "#5b6cff",
+        "backgroundColor": "#ffffff",
+        "secondaryBackgroundColor": "#f7f8ff",
+        "textColor": "#202124",
+        "font": "Times new Roman",  # closest to Times in Streamlit UI
+    },
+)
+
 # ---------------------------- Constants ----------------------------
 SAVED_EDITS_FILE = "saved_edits.csv"
 DATA_FILE = "data.csv"
